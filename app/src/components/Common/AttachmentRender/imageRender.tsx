@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FileType } from '../Editor/type';
-import { Image } from '@heroui/react';
+import { Image, Skeleton } from '@heroui/react';
 import { PhotoProvider, PhotoView } from 'react-photo-view';
 import { Icon } from '@/components/Common/Iconify/icons';
 import { DeleteIcon, DownloadIcon, InsertConextButton, CopyIcon } from './icons';
@@ -11,19 +11,24 @@ import axiosInstance from '@/lib/axios';
 import { getBlinkoEndpoint } from '@/lib/blinkoEndpoint';
 import { RootStore } from '@/store';
 import { UserStore } from '@/store/user';
+import { useLazyLoad } from '@/hooks/useLazyLoad';
 
 type IProps = {
   files: FileType[]
   preview?: boolean
   columns?: number
   onReorder?: (newFiles: FileType[]) => void
+  maxCount?: number  // Limit rendered count when folded, does not affect file deletion
 }
 export const ImageThumbnailRender = ({ src, className }: { src: string, className?: string }) => {
   const [isOriginalError, setIsOriginalError] = useState(false);
   const [currentSrc, setCurrentSrc] = useState('');
   const [loading, setLoading] = useState(true);
+  const { ref: lazyRef, isVisible } = useLazyLoad();
 
   useEffect(() => {
+    if (!isVisible) return; // Skip loading when not visible
+
     let objectUrl = '';
 
     const fetchImage = async () => {
@@ -62,7 +67,7 @@ export const ImageThumbnailRender = ({ src, className }: { src: string, classNam
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [src]);
+  }, [src, isVisible]);
 
   useEffect(() => {
     if (isOriginalError) {
@@ -71,45 +76,64 @@ export const ImageThumbnailRender = ({ src, className }: { src: string, classNam
   }, [isOriginalError])
 
   return (
-    <>
-      {loading && (
-        <div className="flex items-center justify-center w-full h-full">
-          <Icon icon="line-md:loading-twotone-loop" width="24" height="24" />
-        </div>
+    <div ref={lazyRef} className="w-full h-full">
+      {!isVisible ? (
+        <Skeleton className="w-full h-full rounded-lg" />
+      ) : (
+        <>
+          {loading && (
+            <div className="flex items-center justify-center w-full h-full">
+              <Icon icon="line-md:loading-twotone-loop" width="24" height="24" />
+            </div>
+          )}
+          {!loading && (
+            <Image
+              src={currentSrc}
+              classNames={{
+                wrapper: '!max-w-full',
+              }}
+              draggable={false}
+              onError={() => {
+                setIsOriginalError(true);
+              }}
+              className={`object-cover w-full ${className}`}
+            />
+          )}
+        </>
       )}
-      {!loading && (
-        <Image
-          src={currentSrc}
-          classNames={{
-            wrapper: '!max-w-full',
-          }}
-          draggable={false}
-          onError={() => {
-            setIsOriginalError(true);
-          }}
-          className={`object-cover w-full ${className}`}
-        />
-      )}
-    </>
+    </div>
   );
 }
 
 const ImageRender = observer((props: IProps) => {
-  const { files, preview = false, columns } = props
+  const { files, preview = false, columns, maxCount } = props
   const isPc = useMediaQuery('(min-width: 768px)')
+
+  // Limit rendered count when folded, but keep full files for DeleteIcon
+  const displayFiles = maxCount && maxCount < files.length
+    ? files.filter(f => f.previewType === 'image').slice(0, maxCount)
+    : files;
+
+  const gridCols = useMemo(() => {
+    if (!preview) return undefined;
+    const count = displayFiles.length;
+    const idealCols = Math.ceil(count / 2);
+    const maxCols = isPc ? 4 : 3;
+    return Math.min(maxCols, Math.max(1, idealCols));
+  }, [displayFiles.length, preview, isPc])
 
   const imageRenderClassName = useMemo(() => {
     if (!preview) {
       return 'flex flex-row gap-2 overflow-x-auto pb-2'
     }
-    return 'flex flex-wrap gap-2'
+    return 'grid gap-2'
   }, [preview, columns])
 
   const imageHeight = useMemo(() => {
     if (!preview) {
       return 'h-[160px] w-[160px]'
     }
-    return 'md:h-[180px] md:w-[180px] h-[100px] w-[100px] object-cover'
+    return 'md:h-[180px] h-[100px] w-full object-cover'
   }, [preview, columns])
 
   const renderImage = (file: FileType) => (
@@ -124,7 +148,7 @@ const ImageRender = observer((props: IProps) => {
           <div>
             <ImageThumbnailRender
               src={file.preview}
-              className={`mb-4 ${imageHeight} object-cover md:w-[1000px]`}
+              className={`${imageHeight}`}
             />
           </div>
         </PhotoView>
@@ -147,9 +171,9 @@ const ImageRender = observer((props: IProps) => {
   return (
     <PhotoProvider>
       <DraggableFileGrid
-        files={files}
+        files={displayFiles}
         preview={preview}
-        columns={columns}
+        columns={preview ? gridCols : columns}
         type="image"
         className={imageRenderClassName}
         renderItem={renderImage}

@@ -19,6 +19,7 @@ export const DraggableFileGrid = ({
   onReorder,
   type,
   className,
+  columns,
   renderItem
 }: DraggableFileGridProps) => {
   const handleDragEnd = async (result: any) => {
@@ -54,13 +55,17 @@ export const DraggableFileGrid = ({
     }
   };
 
+  const isGrid = className?.includes('grid');
+  const gridStyle = isGrid && columns ? { gridTemplateColumns: `repeat(${columns}, 1fr)` } : {};
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <Droppable droppableId={type} direction="horizontal">
+      <Droppable droppableId={type} direction={isGrid ? 'vertical' : 'horizontal'}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
+            style={isGrid ? { ...provided.droppableProps.style, display: 'grid', ...gridStyle } : { ...provided.droppableProps.style, ...gridStyle }}
             className={`${className} ${snapshot.isDraggingOver ? 'bg-hover/50' : ''}`}
           >
             {files.filter(i => i.previewType === type).map((file, index) => (

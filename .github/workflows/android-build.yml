@@ -1,0 +1,124 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '*'
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: sdkmanager "ndk;27.0.11902837"
+
+      - name: Setup Node Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Increase Node.js memory limit
+        run: echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+          cache-on-failure: true
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: 1.2.8
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Prisma Generate
+        run: bun run prisma:generate
+
+      - name: Configure Gradle Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "^2.0.0-alpha"
+
+      - name: Decode Keystore and Create Properties
+        run: |
+          mkdir -p ~/.android
+          base64 -d > ~/.android/debug.keystore << 'B64EOF'
+          MIIKZgIBAzCCChAGCSqGSIb3DQEHAaCCCgEEggn9MIIJ+TCCBcAGCSqGSIb3DQEHAaCCBbEEggWtMIIFqTCCBaUGCyqGSIb3DQEMCgECoIIFQDCCBTwwZgYJ
+          KoZIhvcNAQUNMFkwOAYJKoZIhvcNAQUMMCsEFAAcMfPU0EPdrYTShHtFqV6BkefXAgInEAIBIDAMBggqhkiG9w0CCQUAMB0GCWCGSAFlAwQBKgQQOPcIFyKx
+          eEpHPAIrXq8NgwSCBNCmGO5xqkLsGp6/PiIeu0VQOU4txcWwa734aLX+7Go7KQP7PjpU5LOTVomOML3jqJCHyeQwCelUGeo8U6MVFhQ9SiyiCC9pRPotY/md
+          UEU0H/TYHOFjJHWcwEGdYqh4oIFu2B0YmQNmq2oqmThmwfP07JmQdSXrx9vKbA3f5oINX/RN8a7ACt0g/gMHHTqP2ZHVAxosP4YArIoFKdAPoZEd6gTGZUbL
+          UPmhSXgE85P+X2mWx0cx7hMiRFkmF6uWgKqCZTCqp7RtT3/nRGTsEG0pgJvSzYZKq4NAJjkMqXxYkju3/tKVMineDcfq9V/a7s7G8TdcM911mKEPKKcO+om5
+          1sUXYF23et88w2CfqwXliDrZ7+pKihfsJDjzQ2DI2rEsQ5RElLbXwNeAA/CdWjRxCMUB8KJoWEUNq8OSF+3CwAecAL3F1XRLKXr1ct0HQ0rg9aaAb/p0DZme
+          6A/kxglLKyMLGeeUkf1cTRXgLX1p79PPxI+8GIyJz5+h1bAseIVg6HBr5smIKZNdDkrvMq+ddBx4flF+5ziPyA7ujWf+zw6AMPXFGbaMnVmo2L58KrdJV+yP
+          ESOZUERW8xyO6JV7Thjl1dKdEhHFCgwxjrVl6Q+kizU68SqwG2YoAVG6tDXiyZy99YvoYZnKVpplB7vQnEYJknVAahOQ84aVPf7BziADxfg+zZJoBWMBM+u5
+          gPUDyuDX7axlZ8xadewVbJ2udOIriLWxbOnG40hhQ4//0tIllKBjJ+jbQt4YPCEpFl5rz7ZSjXigZnbfrxVlRhfaposdSofVZ21Axs2+WMq2hUp8+OGu4wlV
+          I3QpQRNyJRbtu7IpisNbtzZxWXvTmVC/5Z6Av1p658Az9TKmQLKnQmTSwp5wDudQOFG5/fSWrLW6I39UA7tw7Rf785TFAStriztTn7KpTlWDLImeJ2v8IEhQ
+          0FReEGy8SauSqruV+wMKCf13oeA6DYz+xaAcHQI6NLpwGt7bzxEEN1vbtdRvubfx8oJ9BS/sl3DtZdhPMnwl0SH7+7bbgqlAgzNBz5DxnjE/QLgbmWILHNNJ
+          77BVwQgmAEgalsd/OSzslEFT/DSNybWT7oF+nBzfE7asxtYgQ288uOgwRUW8lP2OkriF0MCnp6jAWoyVE2CNPxOH4T5deVMVp16clUpK1sSRcK/Ucv/awum3
+          0SxoLwgCWE4e+xeDqq9GyBL4fFJBFBYcIXKgBPqU3QglBsuq9rsTAZ2u3TEaj/Xxo0BdyDhHx3nZ9h7myEj8MknQR+/7qW8OLdcQxcWTl6xsyMpwfTjL60+M
+          HujwRk880h79gZtPnzGVQu2zxlstql9TNtrDCbRqrKNK5bVFxNnGw3yxEaZeu9g9F3P/Vnbqsig2bx1unz6hxCA9hlZny0FmlJRPXuSAQpPgVBuHxfmQdCeQ
+          VhnFGrmplIbcjMXL6qe8YIyY9PvUHMU5gbZ0m9ScdoPYH5yBNLRHxAJJeoE+mbAc94qfaLnAgNQiYZSWTtBnx6WY9C6R/2dw9Y9YYhMRBKNMBHqryRI89Uwd
+          hzPNVzGKCluMMbseRUElCR7Ia49KbbvpTtz4oYUnTccncuMxunKT/JBKXw7p3Tl14tX0M1x/6Us9mxGJ8gC+bvD4YJMmgCOmXty6QjFSMC0GCSqGSIb3DQEJ
+          FDEgHh4AYQBuAGQAcgBvAGkAZABkAGUAYgB1AGcAawBlAHkwIQYJKoZIhvcNAQkVMRQEElRpbWUgMTc4MzIyNzI2ODg0NjCCBDEGCSqGSIb3DQEHBqCCBCIw
+          ggQeAgEAMIIEFwYJKoZIhvcNAQcBMGYGCSqGSIb3DQEFDTBZMDgGCSqGSIb3DQEFDDArBBTNiFIA/2qWFbKW+gf3+2fwrEpYYAICJxACASAwDAYIKoZIhvcN
+          AgkFADAdBglghkgBZQMEASoEEOium1Ply9c9i4pPr0MdIt6AggOgwM+X6tVhSXIH1G2f7zqJSAIbIu+V4MpsFq3JkMKR9IZGa9MmjDk4uMd8lmC4anse74mx
+          WDT+4xt/b4zXYTGAyMCTrpikD+MpUdQzttQ4Gdqrz/Uvca97PpbRwpRQvATt3cJHy7uQY3jOwMRM5qI/9/QMewv7RYxJWsN9+7E2qVloRfSZbCWtzGvaEM0C
+          peiLa7uv82ZqdaKIo6bJvKQYtKDclkCwKcu/XMuN7CGO70rtuSIXI8i9jSDK5kcxGk6Q3foAEQ/2r4Fge7xqBHh7iMzNe2FmV5zTMQH/XNVUppxBfipwzdJZ
+          DKVEJumTNqBKHKLUvjAwAcYaOoIyQQIXjJfzfnoA8Jfdc7UYIMA5O1izndc35CpLLHs8Tgst1lEYmiZKntd8BQK4NNOonWT3zAF/qoF/X+pgW/DUBh0ppeol
+          in5jtaxuMmwTYzjpm4mVjNpN94cLaCwFYTtHN3pT4K4r4BJ7goqzuIx36EOoOY/zsQ4/GpRVGEAfxj6eOPuTdmW5ovR+5yuw/5j+Dn9y1JFsbxc7nlke22cz
+          LmcSwmx85URvyXpH1otmoNuHBfdYxbgoZbImktLGLWZEkHgaDlp9Viv5e3VzJUdaF8w51M/tOpSZSsdN1O4stXG+S0gzROloeI4M0GB2HEyKUj44oMf0HW/M
+          3vq4lZ8wUQ3iJvyt397SX+yjpMmaepBoE9FrB1Adno+GgY00nkScaq3/zaKPKXUR+FuMI6lUlqKm/PUvayxKCnQDMhlnDk8BYgk4He+l2pFlyHg6nk2RRGGV
+          eQVFt5Zjtfs9K8jdGSOSKAGGSIf9qXp9c1ssTmFQCQHCCP8NF4qhaxJtf3Dx8lmZlGI+Bx4RTp2R+vTjt6zxnoMIvsqsXSVZllL0w+t/VHFPyAmIKtXsMvQQ
+          K0GmIHZJo0v2w1Ob3vSPI+kSUwjVC1mWGhDD9qJQp5jyJfsdkew/lDr2sCc8NqAPyyfpr3f6ltwMYOL7gR9Vw9QUT6pOztfYUSTyHUSGs85kiM+JNFSCUhdW
+          SMYetXjloXk67jMtyuS2bBtrZ750jvN65AGK46T5nzPJI8yb7Df+VJgBRRfRtx7TJDbsPs5xueOGVypGMhuzrYMMS5OW3vwTaFqlOzyCkw0yYiKWixytBdfz
+          bBaAJbMcTMUQsY/LpH4rz4lUAVAU2pur2PxT2/ltYqtXNe3M6bzwE99Ir5ZzI81iU/RWWZlUYwABqIdbvYQrJBvSczBNMDEwDQYJYIZIAWUDBAIBBQAEIL40
+          vd+3slktM6l/pI6dVKk1PEfd8pugqHUNJt5cyeTqBBT3o4y9GeAxk8OyB7ZenakHTRwlmwICJxA=
+          B64EOF
+          mkdir -p app/src-tauri/gen/android
+          cat > app/src-tauri/gen/android/keystore.properties << EOF
+          password=android
+          keyAlias=androiddebugkey
+          storeFile=${HOME}/.android/debug.keystore
+          EOF
+
+      - name: Build Android APK
+        run: |
+          cd app
+          bun run tauri:android:build
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.11902837
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blinko-android-apk
+          path: app/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          retention-days: 7
