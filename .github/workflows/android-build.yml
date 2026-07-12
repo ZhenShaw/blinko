@@ -24,18 +24,10 @@ jobs:
       - name: Install NDK
         run: sdkmanager "ndk;27.0.11902837"
 
-      - name: Setup Node Environment
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
-      - name: Increase Node.js memory limit
-        run: echo "NODE_OPTIONS=--max-old-space-size=4096" >> $GITHUB_ENV
-
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -48,6 +40,17 @@ jobs:
         with:
           bun-version: 1.2.8
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+            app/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install Dependencies
         run: bun install --frozen-lockfile
 
@@ -55,17 +58,12 @@ jobs:
         run: bun run prisma:generate
 
       - name: Configure Gradle Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0.0-alpha"
+          key: ${{ runner.os }}-gradle-v2-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/buildSrc/**/*.kt') }}
 
       - name: Decode Keystore and Create Properties
         run: |
@@ -115,6 +113,9 @@ jobs:
           bun run tauri:android:build
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.0.11902837
+          ORG_GRADLE_PROJECT_abiList: arm64-v8a
+          ORG_GRADLE_PROJECT_archList: arm64
+          ORG_GRADLE_PROJECT_targetList: aarch64
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

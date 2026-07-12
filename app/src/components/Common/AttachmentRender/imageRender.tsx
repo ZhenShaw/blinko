@@ -116,17 +116,14 @@ const ImageRender = observer((props: IProps) => {
 
   const gridCols = useMemo(() => {
     if (!preview) return undefined;
-    const count = displayFiles.length;
-    const idealCols = Math.ceil(count / 2);
-    const maxCols = isPc ? 4 : 3;
-    return Math.min(maxCols, Math.max(1, idealCols));
-  }, [displayFiles.length, preview, isPc])
+    return isPc ? 4 : 3;
+  }, [preview, isPc])
 
   const imageRenderClassName = useMemo(() => {
     if (!preview) {
       return 'flex flex-row gap-2 overflow-x-auto pb-2'
     }
-    return 'grid gap-2'
+    return 'grid grid-cols-3 md:grid-cols-4 gap-2'
   }, [preview, columns])
 
   const imageHeight = useMemo(() => {

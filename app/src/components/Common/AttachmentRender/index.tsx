@@ -58,7 +58,6 @@ const AttachmentsRender = observer((props: IProps) => {
           imageFiles.length,
           Math.max(0, visibleCount - renderedCount)
         );
-        const visibleImages = imageFiles.slice(0, visibleImageCount);
         renderedCount += visibleImageCount;
 
         // Videos — with fold count
@@ -72,7 +71,7 @@ const AttachmentsRender = observer((props: IProps) => {
 
         return (
           <div className="flex flex-col gap-2">
-            {visibleImages.length > 0 && (
+            {imageFiles.length > 0 && (
               <ImageRender
                 files={files}
                 preview={preview}
@@ -83,20 +82,23 @@ const AttachmentsRender = observer((props: IProps) => {
             )}
 
             {visibleVideos.length > 0 && (
-              <div
-                className={preview ? 'grid gap-2' : 'flex flex-row gap-2 overflow-x-auto pb-2'}
-                style={preview ? { gridTemplateColumns: `repeat(${Math.min(isPc ? 4 : 3, Math.max(1, Math.ceil(visibleVideos.length / 2)))}, 1fr)` } : undefined}
-              >
-                {visibleVideos.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className='group relative'>
+              <DraggableFileGrid
+                files={files}
+                preview={preview}
+                columns={preview ? (isPc ? 4 : 3) : undefined}
+                type="video"
+                className={preview ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'flex flex-row gap-2 overflow-x-auto pb-2'}
+                onReorder={props.onReorder}
+                renderItem={(file) => (
+                  <div className={`relative group ${!preview ? 'min-w-[160px] flex-shrink-0' : ''} ${preview ? 'md:h-[180px] h-[100px] w-full' : 'h-[160px] w-[160px]'}`}>
                     <VideoThumbnailRender file={file} preview={preview} />
                     {!file.uploadPromise?.loading?.value && !preview &&
                       <DeleteIcon className='absolute z-10 right-[5px] top-[5px]' files={files} file={file} />
                     }
                     {preview && <DownloadIcon className='top-[8px] right-[8px]' file={file} />}
                   </div>
-                ))}
-              </div>
+                )}
+              />
             )}
 
             {hasMore && (

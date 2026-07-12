@@ -8,7 +8,7 @@ type DraggableFileGridProps = {
   preview?: boolean;
   columns?: number;
   onReorder?: (newFiles: FileType[]) => void;
-  type: 'image' | 'other';
+  type: 'image' | 'video' | 'other';
   className?: string;
   renderItem?: (file: FileType) => React.ReactNode;
 };

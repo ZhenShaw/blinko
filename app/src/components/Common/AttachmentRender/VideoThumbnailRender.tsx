@@ -62,13 +62,9 @@ const VideoThumbnailRender = observer(({ file, preview = false, className }: Pro
     ? `${getBlinkoEndpoint(file.preview)}?token=${token}`
     : '';
 
-  const imageHeight = preview
-    ? 'md:h-[180px] h-[100px] w-full'
-    : 'h-[160px] w-[160px]';
-
   if (isPlaying) {
     return (
-      <div className={`relative ${imageHeight}`}>
+      <div className="relative w-full h-full">
         <video
           ref={videoRef}
           src={videoUrl}
@@ -84,7 +80,7 @@ const VideoThumbnailRender = observer(({ file, preview = false, className }: Pro
   return (
     <div
       ref={lazyRef}
-      className={`relative group ${!preview ? 'min-w-[160px] flex-shrink-0' : ''} ${imageHeight} cursor-pointer`}
+      className={`relative group w-full h-full cursor-pointer`}
       onClick={() => setIsPlaying(true)}
     >
       {!isVisible ? (
