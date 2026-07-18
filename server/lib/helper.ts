@@ -341,3 +341,4 @@ export const generateUrlWithToken = async (url: string, user: any) => {
   return `${url}${separator}token=${token}`;
 }
 
+
