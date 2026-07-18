@@ -5,8 +5,8 @@ import { observer } from 'mobx-react-lite';
 import { helper } from '@/lib/helper';
 import { type Attachment } from '@shared/lib/types';
 import { FileType } from '../Editor/type';
-import { DeleteIcon, DownloadIcon } from './icons';
-import { ImageRender } from './imageRender';
+import { DeleteIcon, DownloadIcon, InsertConextButton, CopyIcon } from './icons';
+import { ImageThumbnailRender } from './imageRender';
 import { VideoThumbnailRender } from './VideoThumbnailRender';
 import { HandleFileType } from '../Editor/editorUtils';
 import { Icon } from '@/components/Common/Iconify/icons';
@@ -21,6 +21,7 @@ import { RootStore } from '@/store';
 import { UserStore } from '@/store/user';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from 'usehooks-ts';
+import { PhotoProvider, PhotoView } from 'react-photo-view';
 
 const INITIAL_MEDIA_COUNT = 6;
 const DESKTOP_INITIAL_MEDIA_COUNT = 8;
@@ -50,55 +51,77 @@ const AttachmentsRender = observer((props: IProps) => {
         const allMedia = files.filter(f => f.previewType === 'image' || f.previewType === 'video');
         const hasMore = allMedia.length > initialMediaCount;
         const visibleCount = hasMore && !showAllMedia ? initialMediaCount : allMedia.length;
-        let renderedCount = 0;
 
-        // Images — with fold count
-        const imageFiles = files.filter(f => f.previewType === 'image');
-        const visibleImageCount = Math.min(
-          imageFiles.length,
-          Math.max(0, visibleCount - renderedCount)
-        );
-        renderedCount += visibleImageCount;
+        // Interleave images and videos into one visible list, preserving original order
+        const visibleMedia = files.filter(f => f.previewType === 'image' || f.previewType === 'video').slice(0, visibleCount);
 
-        // Videos — with fold count
-        const videoFiles = files.filter(f => f.previewType === 'video');
-        const visibleVideoCount = Math.min(
-          videoFiles.length,
-          Math.max(0, visibleCount - renderedCount)
-        );
-        const visibleVideos = videoFiles.slice(0, visibleVideoCount);
-        renderedCount += visibleVideoCount;
+        const mediaClassName = preview ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'flex flex-row gap-2 overflow-x-auto pb-2';
+        const mediaHeight = preview ? 'md:h-[180px] h-[100px] w-full' : 'h-[160px] w-[160px]';
+
+        const renderMediaItem = (file: FileType) => {
+          if (file.previewType === 'image') {
+            return (
+              <div className={`relative group ${!preview ? 'min-w-[160px] flex-shrink-0' : 'min-w-0'} ${mediaHeight}`}>
+                {file.uploadPromise?.loading?.value && (
+                  <div className='absolute inset-0 flex items-center justify-center w-full h-full'>
+                    <Icon icon="line-md:uploading-loop" width="40" height="40" />
+                  </div>
+                )}
+                <PhotoView src={getBlinkoEndpoint(`${file.preview}?token=${RootStore.Get(UserStore).tokenData.value?.token}`)}>
+                  <div>
+                    <ImageThumbnailRender src={file.preview} className={mediaHeight} />
+                  </div>
+                </PhotoView>
+                {!file.uploadPromise?.loading?.value && !preview &&
+                  <InsertConextButton className='absolute z-10 left-[5px] top-[5px]' files={files} file={file} />
+                }
+                {!file.uploadPromise?.loading?.value && !preview &&
+                  <DeleteIcon className='absolute z-10 right-[5px] top-[5px]' files={files} file={file} />
+                }
+                {preview && (
+                  <>
+                    <CopyIcon file={file} />
+                    <DownloadIcon file={file} />
+                  </>
+                )}
+              </div>
+            );
+          }
+          return (
+            <div className={`relative group ${!preview ? 'min-w-[160px] flex-shrink-0' : 'min-w-0'} ${mediaHeight}`}>
+              <VideoThumbnailRender file={file} preview={preview} className={mediaHeight} />
+              {!file.uploadPromise?.loading?.value && !preview &&
+                <DeleteIcon className='absolute z-10 right-[5px] top-[5px]' files={files} file={file} />
+              }
+              {preview && <DownloadIcon className='top-[8px] right-[8px]' file={file} />}
+            </div>
+          );
+        };
 
         return (
           <div className="flex flex-col gap-2">
-            {imageFiles.length > 0 && (
-              <ImageRender
-                files={files}
-                preview={preview}
-                columns={columns}
-                maxCount={visibleImageCount}
-                onReorder={props.onReorder}
-              />
-            )}
-
-            {visibleVideos.length > 0 && (
-              <DraggableFileGrid
-                files={files}
-                preview={preview}
-                columns={preview ? (isPc ? 4 : 3) : undefined}
-                type="video"
-                className={preview ? 'grid grid-cols-3 md:grid-cols-4 gap-2' : 'flex flex-row gap-2 overflow-x-auto pb-2'}
-                onReorder={props.onReorder}
-                renderItem={(file) => (
-                  <div className={`relative group ${!preview ? 'min-w-[160px] flex-shrink-0' : ''} ${preview ? 'md:h-[180px] h-[100px] w-full' : 'h-[160px] w-[160px]'}`}>
-                    <VideoThumbnailRender file={file} preview={preview} />
-                    {!file.uploadPromise?.loading?.value && !preview &&
-                      <DeleteIcon className='absolute z-10 right-[5px] top-[5px]' files={files} file={file} />
-                    }
-                    {preview && <DownloadIcon className='top-[8px] right-[8px]' file={file} />}
+            {visibleMedia.length > 0 && (
+              <PhotoProvider>
+                {preview ? (
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                    {visibleMedia.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="min-w-0">
+                        {renderMediaItem(file)}
+                      </div>
+                    ))}
                   </div>
+                ) : (
+                  <DraggableFileGrid
+                    files={files}
+                    preview={preview}
+                    columns={undefined}
+                    type="media"
+                    className={mediaClassName}
+                    onReorder={props.onReorder}
+                    renderItem={renderMediaItem}
+                  />
                 )}
-              />
+              </PhotoProvider>
             )}
 
             {hasMore && (

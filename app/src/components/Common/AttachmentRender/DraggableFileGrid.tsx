@@ -8,9 +8,14 @@ type DraggableFileGridProps = {
   preview?: boolean;
   columns?: number;
   onReorder?: (newFiles: FileType[]) => void;
-  type: 'image' | 'video' | 'other';
+  type: 'image' | 'video' | 'media' | 'other';
   className?: string;
   renderItem?: (file: FileType) => React.ReactNode;
+};
+
+const matchesType = (file: FileType, t: string) => {
+  if (t === 'media') return file.previewType === 'image' || file.previewType === 'video';
+  return file.previewType === t;
 };
 
 export const DraggableFileGrid = ({
@@ -26,7 +31,7 @@ export const DraggableFileGrid = ({
     if (!result.destination) return;
     
     const { source, destination } = result;
-    const filteredFiles = files.filter(i => i.previewType === type);
+    const filteredFiles = files.filter(i => matchesType(i, type));
     const allFiles = Array.from(files);
     
     const [reorderedItem] = filteredFiles.splice(source.index, 1);
@@ -34,7 +39,7 @@ export const DraggableFileGrid = ({
       filteredFiles.splice(destination.index, 0, reorderedItem);
       
       const newFiles = allFiles.map(file => {
-        if (file.previewType === type) {
+        if (matchesType(file, type)) {
           return filteredFiles.shift() || file;
         }
         return file;
@@ -68,7 +73,7 @@ export const DraggableFileGrid = ({
             style={isGrid ? { ...provided.droppableProps.style, display: 'grid', ...gridStyle } : { ...provided.droppableProps.style, ...gridStyle }}
             className={`${className} ${snapshot.isDraggingOver ? 'bg-hover/50' : ''}`}
           >
-            {files.filter(i => i.previewType === type).map((file, index) => (
+            {files.filter(i => matchesType(i, type)).map((file, index) => (
               <Draggable
                 key={`${file.name}-${index}`}
                 draggableId={`${file.name}-${index}`}
@@ -82,6 +87,7 @@ export const DraggableFileGrid = ({
                     {...provided.dragHandleProps}
                     style={{
                       ...provided.draggableProps.style,
+                      width: isGrid ? '100%' : provided.draggableProps.style?.width,
                       opacity: snapshot.isDragging ? 0.5 : 1,
                     }}
                   >

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { FileType } from '../Editor/type';
-import { Image, Skeleton } from '@heroui/react';
+import { Skeleton } from '@heroui/react';
 import { Icon } from '@/components/Common/Iconify/icons';
 import { observer } from 'mobx-react-lite';
 import { getBlinkoEndpoint } from '@/lib/blinkoEndpoint';
@@ -80,7 +80,7 @@ const VideoThumbnailRender = observer(({ file, preview = false, className }: Pro
   return (
     <div
       ref={lazyRef}
-      className={`relative group w-full h-full cursor-pointer`}
+      className={`relative group w-full h-full cursor-pointer ${className ?? ''}`}
       onClick={() => setIsPlaying(true)}
     >
       {!isVisible ? (
@@ -88,12 +88,12 @@ const VideoThumbnailRender = observer(({ file, preview = false, className }: Pro
       ) : (
         <>
           {thumbnailPath ? (
-            <div className="w-full h-full">
-              <Image
+            <div className="w-full h-full min-w-0">
+              <img
                 src={thumbnailPath}
                 draggable={false}
-                classNames={{ wrapper: '!max-w-full !h-full' }}
                 className="object-cover w-full h-full rounded-lg"
+                alt=""
               />
             </div>
           ) : (
