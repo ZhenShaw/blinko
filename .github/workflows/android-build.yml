@@ -121,5 +121,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: blinko-android-apk
-          path: app/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
+          path: app/src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk
           retention-days: 7
