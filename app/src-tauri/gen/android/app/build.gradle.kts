@@ -83,4 +83,51 @@ dependencies {
 
 }
 
+// === Blinko fix: fullscreen video custom view state ===
+// Wry's upstream `onShowCustomView` calls `callback.onCustomViewHidden()`
+// immediately, breaking HTML5 <video> fullscreen on Android. We overwrite
+// the generated Kotlin file with our patched copy (which hides system bars
+// and attaches the view to android.R.id.content) just before Kotlin
+// compilation runs, so the patched class always lands in the dex regardless
+// of what `wry/build.rs` wrote.
+//
+// Template source: app/patches/RustWebChromeClient.kt
+// Output: gen/.../src/main/java/com/blinko/app/generated/RustWebChromeClient.kt
+//
+// Runs as a dependency of every Kotlin compile task, so it's always
+// ordered correctly — `:app:compileUniversalReleaseKotlin` (and
+// debug variants) cannot start until this has run.
+val blinkoPatchedChromeClientTemplate = file("patches/RustWebChromeClient.kt")
+val blinkoGeneratedChromeClientDir = file("src/main/java/com/blinko/app/generated")
+val blinkoGeneratedChromeClientFile = blinkoGeneratedChromeClientDir.resolve("RustWebChromeClient.kt")
+
+tasks.register("patchBlinkoWryChromeClient") {
+    group = "blinko"
+    description = "Overwrite wry's auto-generated RustWebChromeClient.kt with the patched template so HTML5 video fullscreen works."
+    inputs.file(blinkoPatchedChromeClientTemplate)
+    outputs.file(blinkoGeneratedChromeClientFile)
+    doLast {
+        blinkoGeneratedChromeClientDir.mkdirs()
+        val templateContent = blinkoPatchedChromeClientTemplate.readText()
+        val pkg = android.namespace ?: error("android.namespace is null")
+        val patched = templateContent.replace("{{package}}", pkg)
+        blinkoGeneratedChromeClientFile.writeText(patched)
+        val hasMarker = patched.contains("Blinko fix: fullscreen video custom view state")
+        logger.lifecycle("patchBlinkoWryChromeClient: wrote ${patched.length} bytes, marker=$hasMarker to $blinkoGeneratedChromeClientFile")
+    }
+}
+
+afterEvaluate {
+    // Ordering is critical: the rust plugin's cargo build (rustBuild*) runs
+    // wry/build.rs, which (re)writes the generated Kotlin from wry's source
+    // template. Our patch must land AFTER that, otherwise it gets overwritten
+    // back to the upstream version. Force rustBuild* -> patch -> compile*Kotlin.
+    tasks.named("patchBlinkoWryChromeClient") {
+        mustRunAfter(tasks.matching { it.name.startsWith("rustBuild") })
+    }
+    tasks.matching { it.name.startsWith("compile") && it.name.endsWith("Kotlin") }.configureEach {
+        dependsOn("patchBlinkoWryChromeClient")
+    }
+}
+
 apply(from = "tauri.build.gradle.kts")

@@ -18,8 +18,6 @@ import { AvatarAccount, SimpleCommentList } from "./commentButton";
 import { PluginApiStore } from "@/store/plugin/pluginApiStore";
 import { PluginRender } from "@/store/plugin/pluginRender";
 import { useLocation } from "react-router-dom";
-import { SwipeableCard } from "./SwipeableCard";
-import { api } from "@/lib/trpc";
 import { FullscreenEditor } from "./FullscreenEditor";
 
 
@@ -83,19 +81,6 @@ export const BlinkoCard = observer(({ blinkoItem, account, isShareMode = false, 
     blinko.curSelectedNote = _.cloneDeep(blinkoItem);
     ShowEditBlinkoModel();
     FocusEditorFixMobile()
-  };
-
-  const handleSwipePin = () => {
-    blinko.upsertNote.call({
-      id: blinkoItem.id,
-      isTop: !blinkoItem.isTop
-    });
-  };
-
-  const handleSwipeDelete = () => {
-    api.notes.trashMany.mutate({ ids: [blinkoItem.id!] }).then(() => {
-      blinko.updateTicker++;
-    });
   };
 
   return (
@@ -174,19 +159,6 @@ export const BlinkoCard = observer(({ blinkoItem, account, isShareMode = false, 
             {cardContent}
           </ContextMenuTrigger>
         );
-
-        // On mobile, wrap with SwipeableCard for swipe actions
-        if (!isPc && !isShareMode) {
-          return (
-            <SwipeableCard
-              onPin={handleSwipePin}
-              onDelete={handleSwipeDelete}
-              isPinned={blinkoItem.isTop}
-            >
-              {wrappedContent}
-            </SwipeableCard>
-          );
-        }
 
         return wrappedContent;
       })()}

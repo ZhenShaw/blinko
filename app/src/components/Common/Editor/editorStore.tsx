@@ -2,6 +2,7 @@ import { RootStore } from '@/store';
 import { PromiseState } from '@/store/standard/PromiseState';
 import { helper } from '@/lib/helper';
 import { convertHeicToJpeg } from '@/lib/heicConvert';
+import { extractVideoFrame } from '@/lib/video-thumbnail';
 import { FileType, OnSendContentType } from './type';
 import { BlinkoStore } from '@/store/blinkoStore';
 import { api } from '@/lib/trpc';
@@ -225,6 +226,35 @@ export class EditorStore {
         }
       }
 
+      // For video files, extract a frame and upload as thumbnail
+      let videoThumbnailPath = '';
+      let videoWidth = 0;
+      let videoHeight = 0;
+      let videoDuration = 0;
+      const isVideoFile = file.type.startsWith('video/');
+      if (isVideoFile) {
+        try {
+          const frame = await extractVideoFrame(file);
+          const thumbFile = new File(
+            [frame.blob],
+            file.name.replace(/\.[^.]+$/, '_thumb.jpg'),
+            { type: 'image/jpeg' }
+          );
+          const thumbFormData = new FormData();
+          thumbFormData.append('file', thumbFile);
+          const thumbRes = await axiosInstance.post(
+            getBlinkoEndpoint('/api/file/upload'),
+            thumbFormData
+          );
+          videoThumbnailPath = thumbRes.data.filePath;
+          videoWidth = frame.width;
+          videoHeight = frame.height;
+          videoDuration = frame.duration;
+        } catch (err) {
+          console.warn('Failed to extract video thumbnail, using default placeholder', err);
+        }
+      }
+
       return {
         name: file.name,
         size: file.size,
@@ -235,6 +265,9 @@ export class EditorStore {
         audioDuration,
         audioDurationSeconds,
         isAudioFile,
+        metadata: isVideoFile && videoThumbnailPath
+          ? { thumbnailPath: videoThumbnailPath, width: videoWidth, height: videoHeight, duration: videoDuration }
+          : undefined,
         uploadPromise: new PromiseState({
           function: async () => {
             const formData = new FormData();
@@ -251,6 +284,14 @@ export class EditorStore {
             }
             if (audioDurationSeconds) {
               formData.append('audioDurationSeconds', audioDurationSeconds.toString())
+            }
+
+            // Add video thumbnail metadata
+            if (videoThumbnailPath) {
+              formData.append('thumbnailPath', videoThumbnailPath)
+              formData.append('width', String(videoWidth))
+              formData.append('height', String(videoHeight))
+              formData.append('duration', String(videoDuration))
             }
 
             const { onUploadProgress } = RootStore.Get(ToastPlugin)

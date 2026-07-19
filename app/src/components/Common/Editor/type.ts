@@ -17,4 +17,13 @@ export type FileType = {
   preview: any
   uploadPromise: PromiseState<any>
   type: string // audio/webm
+  metadata?: {
+    thumbnailPath?: string
+    width?: number
+    height?: number
+    duration?: number
+    audioDuration?: string
+    audioDurationSeconds?: number
+    isUserVoiceRecording?: boolean
+  }
 }
