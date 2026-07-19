@@ -32,19 +32,21 @@ export const VideoPlayerDialog = observer(({ isOpen, onClose, src, poster }: Vid
       }}
     >
       <ModalContent className="bg-transparent">
-        <ModalBody className={`p-0 flex items-center justify-center ${isPc ? '' : 'h-full'}`}>
+        <ModalBody onClick={onClose} className={`p-0 flex items-center justify-center ${isPc ? '' : 'h-full'}`}>
           {isOpen && (
-            <MediaPlayer
-              className={`w-full ${isPc ? 'max-h-[85vh]' : 'max-h-full'}`}
-              src={src}
-              autoPlay
-              playsInline
-            >
-              <MediaProvider>
-                {poster && <Poster className="vds-poster" src={poster} alt="" />}
-              </MediaProvider>
-              <DefaultVideoLayout icons={defaultLayoutIcons} />
-            </MediaPlayer>
+            <div onClick={e => e.stopPropagation()} className="w-full flex items-center justify-center">
+              <MediaPlayer
+                className={`w-full ${isPc ? 'max-h-[85vh]' : 'max-h-full'}`}
+                src={src}
+                autoPlay
+                playsInline
+              >
+                <MediaProvider>
+                  {poster && <Poster className="vds-poster" src={poster} alt="" />}
+                </MediaProvider>
+                <DefaultVideoLayout icons={defaultLayoutIcons} />
+              </MediaPlayer>
+            </div>
           )}
         </ModalBody>
       </ModalContent>
