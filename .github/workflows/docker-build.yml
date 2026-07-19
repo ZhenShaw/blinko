@@ -1,10 +1,10 @@
 name: Build and Push Docker Image
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - fix/multi-select-duplicate-and-export-auth
-  workflow_dispatch:
+      - '*'
 
 env:
   REGISTRY: ghcr.io
