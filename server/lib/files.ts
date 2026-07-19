@@ -260,6 +260,11 @@ export class FileService {
 
   static async deleteFile(api_attachment_path: string) {
     const config = await getGlobalConfig({ useAdmin: true });
+
+    // Look up the attachment record to get metadata (e.g. video thumbnail path)
+    const attachmentRecord = await prisma.attachments.findFirst({ where: { path: api_attachment_path } });
+    const metadata = (attachmentRecord?.metadata as any) ?? {};
+
     if (api_attachment_path.includes('/api/s3file/')) {
       const { s3ClientInstance } = await this.getS3Client();
       const fileName = this.extractAndValidatePath(api_attachment_path);
@@ -268,15 +273,43 @@ export class FileService {
         Key: fileName,
       });
       await s3ClientInstance.send(command);
-      const attachmentPath = await prisma.attachments.findFirst({ where: { path: api_attachment_path } })
-      if (attachmentPath) {
-        await prisma.attachments.delete({ where: { id: attachmentPath.id } })
+
+      // Delete S3 video thumbnail
+      if (metadata.thumbnailPath) {
+        try {
+          const thumbFileName = this.extractAndValidatePath(metadata.thumbnailPath);
+          const thumbCommand = new DeleteObjectCommand({
+            Bucket: config.s3Bucket,
+            Key: thumbFileName,
+          });
+          await s3ClientInstance.send(thumbCommand);
+          // Also delete the thumbnail DB record
+          await prisma.attachments.deleteMany({ where: { path: metadata.thumbnailPath } });
+        } catch (e) {
+          console.warn('Failed to delete video thumbnail (S3):', e);
+        }
+      }
+
+      if (attachmentRecord) {
+        await prisma.attachments.delete({ where: { id: attachmentRecord.id } })
       }
     } else {
       const filepath = this.extractAndValidatePath(api_attachment_path);
-      const attachmentPath = await prisma.attachments.findFirst({ where: { path: api_attachment_path } })
-      if (attachmentPath) {
-        await prisma.attachments.delete({ where: { id: attachmentPath.id } })
+
+      // Delete local video thumbnail
+      if (metadata.thumbnailPath) {
+        try {
+          const thumbPath = this.extractAndValidatePath(metadata.thumbnailPath);
+          await unlink(thumbPath);
+          // Also delete the thumbnail DB record
+          await prisma.attachments.deleteMany({ where: { path: metadata.thumbnailPath } });
+        } catch (e) {
+          console.warn('Failed to delete video thumbnail (local):', e);
+        }
+      }
+
+      if (attachmentRecord) {
+        await prisma.attachments.delete({ where: { id: attachmentRecord.id } })
       }
       await unlink(filepath);
     }

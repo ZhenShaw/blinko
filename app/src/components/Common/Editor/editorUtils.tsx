@@ -33,6 +33,8 @@ export const HandleFileType = (originFiles: Attachment[]): FileType[] => {
   const res = originFiles?.map(file => {
     const extension = helper.getFileExtension(file.name)
     const previewType = helper.getFileType(file.type, file.name)
+    // Cast metadata from Prisma JSON to expected shape
+    const metadata = file.metadata as FileType['metadata'] | null;
     return {
       name: file.name,
       size: file.size,
@@ -40,7 +42,8 @@ export const HandleFileType = (originFiles: Attachment[]): FileType[] => {
       extension: extension ?? '',
       preview: file.path,
       uploadPromise: new PromiseState({ function: async () => file.path }),
-      type: file.type
+      type: file.type,
+      metadata: metadata ?? undefined
     }
   })
   res?.map(i => i.uploadPromise.call())

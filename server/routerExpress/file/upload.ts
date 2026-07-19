@@ -91,12 +91,20 @@ router.post('/', async (req, res) => {
       size: number,
       isUserVoiceRecording?: boolean,
       audioDuration?: string,
-      audioDurationSeconds?: number
+      audioDurationSeconds?: number,
+      thumbnailPath?: string,
+      videoWidth?: number,
+      videoHeight?: number,
+      videoDuration?: number
     } | null = null;
 
     let isUserVoiceRecording = false;
     let audioDuration: string | null = null;
     let audioDurationSeconds: number | null = null;
+    let thumbnailPath: string | null = null;
+    let videoWidth: number | null = null;
+    let videoHeight: number | null = null;
+    let videoDuration_: number | null = null;
 
     bb.on('field', (fieldname, value) => {
       if (fieldname === 'isUserVoiceRecording' && value === 'true') {
@@ -105,6 +113,14 @@ router.post('/', async (req, res) => {
         audioDuration = value;
       } else if (fieldname === 'audioDurationSeconds') {
         audioDurationSeconds = parseInt(value, 10);
+      } else if (fieldname === 'thumbnailPath') {
+        thumbnailPath = value;
+      } else if (fieldname === 'width') {
+        videoWidth = parseInt(value, 10);
+      } else if (fieldname === 'height') {
+        videoHeight = parseInt(value, 10);
+      } else if (fieldname === 'duration') {
+        videoDuration_ = parseFloat(value);
       }
     });
 
@@ -122,12 +138,12 @@ router.post('/', async (req, res) => {
         if (!decodedFilename || decodedFilename.trim() === '') {
           decodedFilename = info.filename || `upload_${Date.now()}`;
         }
-        
+
         stream.on('data', (chunk) => {
           fileSize += chunk.length;
           passThrough.write(chunk);
         });
-        
+
         stream.on('end', () => {
           passThrough.end();
           fileInfo = {
@@ -137,7 +153,11 @@ router.post('/', async (req, res) => {
             size: fileSize,
             isUserVoiceRecording,
             audioDuration: audioDuration || undefined,
-            audioDurationSeconds: audioDurationSeconds || undefined
+            audioDurationSeconds: audioDurationSeconds || undefined,
+            thumbnailPath: thumbnailPath || undefined,
+            videoWidth: videoWidth || undefined,
+            videoHeight: videoHeight || undefined,
+            videoDuration: videoDuration_ || undefined
           };
         });
       }
@@ -161,6 +181,18 @@ router.post('/', async (req, res) => {
         }
         if (fileInfo.audioDurationSeconds) {
           metadata.audioDurationSeconds = fileInfo.audioDurationSeconds;
+        }
+        if (fileInfo.thumbnailPath) {
+          metadata.thumbnailPath = fileInfo.thumbnailPath;
+        }
+        if (fileInfo.videoWidth) {
+          metadata.width = fileInfo.videoWidth;
+        }
+        if (fileInfo.videoHeight) {
+          metadata.height = fileInfo.videoHeight;
+        }
+        if (fileInfo.videoDuration) {
+          metadata.duration = fileInfo.videoDuration;
         }
 
         const filePath = await FileService.uploadFileStream({

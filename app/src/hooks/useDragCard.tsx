@@ -51,7 +51,7 @@ export const useDragCard = ({ notes, onNotesUpdate, activeId, setActiveId, inser
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: shouldEnableDrag ? {
-        delay: 250,
+        delay: 350,
         tolerance: 5,
       } : {
         // Impossible to activate
@@ -61,8 +61,8 @@ export const useDragCard = ({ notes, onNotesUpdate, activeId, setActiveId, inser
     }),
     useSensor(TouchSensor, {
       activationConstraint: shouldEnableDrag ? {
-        delay: 250,
-        tolerance: 5,
+        delay: 500,
+        tolerance: 10,
       } : {
         // Impossible to activate
         delay: 999999,
