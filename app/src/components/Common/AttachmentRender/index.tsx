@@ -16,7 +16,7 @@ import { EditorStore } from '../Editor/editorStore';
 import { DraggableFileGrid } from './DraggableFileGrid';
 import { AudioRender } from './audioRender';
 import { downloadFromLink } from '@/lib/tauriHelper';
-import { getBlinkoEndpoint } from '@/lib/blinkoEndpoint';
+import { getBlinkoFileUrl } from '@/lib/blinkoEndpoint';
 import { RootStore } from '@/store';
 import { UserStore } from '@/store/user';
 import { useTranslation } from 'react-i18next';
@@ -67,7 +67,7 @@ const AttachmentsRender = observer((props: IProps) => {
                     <Icon icon="line-md:uploading-loop" width="40" height="40" />
                   </div>
                 )}
-                <PhotoView src={getBlinkoEndpoint(`${file.preview}?token=${RootStore.Get(UserStore).tokenData.value?.token}`)}>
+                <PhotoView src={getBlinkoFileUrl(file.preview, { token: RootStore.Get(UserStore).tokenData?.value?.token })}>
                   <div>
                     <ImageThumbnailRender src={file.preview} className={mediaHeight} />
                   </div>
@@ -162,7 +162,7 @@ const AttachmentsRender = observer((props: IProps) => {
               ${!preview ? 'min-w-[200px] flex-shrink-0' : 'w-full'}`}
             onClick={() => {
               if (preview) {
-                downloadFromLink(getBlinkoEndpoint(file.uploadPromise.value))
+                downloadFromLink(file.uploadPromise?.value || file.preview)
               }
             }}
           >
